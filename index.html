@@ -142,13 +142,23 @@
     }
     
     // 페이지 로드 시 자동으로 센서 시작 시도
-    window.addEventListener('load', () => {
+    function tryAutoStart() {
       // iOS가 아닌 경우 바로 시작
-      if (!(typeof DeviceOrientationEvent !== 'undefined' && 
-            typeof DeviceOrientationEvent.requestPermission === 'function')) {
+      if (typeof DeviceOrientationEvent === 'undefined' || 
+          typeof DeviceOrientationEvent.requestPermission !== 'function') {
         startSensor();
       }
-    });
+    }
+    
+    // DOM 로드 완료 시 시도
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', tryAutoStart);
+    } else {
+      tryAutoStart();
+    }
+    
+    // 윈도우 로드 완료 시에도 시도 (백업)
+    window.addEventListener('load', tryAutoStart);
     
     // 버튼 클릭으로도 시작 가능
     permBtn.addEventListener('click', startSensor);
