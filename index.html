@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gyro → Swiper (one-by-one)</title>
+  <link rel="stylesheet" href="https://unpkg.com/swiper@11/swiper-bundle.min.css" />
+  <style>
+    :root { color-scheme: light dark; }
+    html,body { height:100%; margin:0; }
+    body { display:grid; place-items:center; background:#111; font-family:system-ui, sans-serif; }
+    .wrap { width:min(900px,100vw); height:min(600px,80vh); position:relative; }
+    .tip { position:fixed; right:1rem; bottom:1rem; color:#fff; opacity:.7; font-size:14px; }
+    .btn { position:fixed; left:1rem; top:1rem; z-index:10; padding:.6rem .9rem; border-radius:.7rem; border:none; }
+    .swiper-slide { display:grid; place-items:center; font-size:40px; color:#fff; }
+    .swiper-slide img { width: 100%; height: 100%; object-fit: cover; }
+  </style>
+</head>
+<body>
+  <button class="btn" id="permBtn">센서 권한 허용 (iOS)</button>
+
+  <div class="wrap">
+    <div class="swiper mySwiper">
+      <div class="swiper-wrapper">
+        <div class="swiper-slide">
+            <img src="https://mblogthumb-phinf.pstatic.net/MjAxODAxMThfODMg/MDAxNTE2MjUyMDg5NjMx.3p8kZq-l0PcfnU7HqAstKKcOBcIMOj4bWgZJYiJicBgg.wcr9Dq1Xfaw42A7FbJg7TMOqe7AUlgP3bFeg3ChFcbYg.JPEG.mrnobody0987/Tale_of_Tales.jpg?type=w800" alt="">
+        </div>
+        <div class="swiper-slide">
+            <img src="https://mblogthumb-phinf.pstatic.net/MjAxODAxMThfMjc0/MDAxNTE2MjUyMDg4ODgw.I5MRsy4XIfNOpIJB7irwBj2oERiWMcdvYajbrIQtod8g.iUx3BtunCwT3g9zc7fOVMwFgMrkl6WhnhGIv8lm3RHsg.JPEG.mrnobody0987/%EA%B1%B0%EC%9D%B8.jpg?type=w800" alt="">
+        </div>
+        <div class="swiper-slide">
+            <img src="https://mblogthumb-phinf.pstatic.net/MjAxODAxMThfMTYw/MDAxNTE2MjUyMDg5NDY1.19gITWy4cyZHpEqgCmLqRIwkw_JgzgdoTEzi5qjjpvEg.D0rMe5eCG5qwYlKCmj8rLn4-XmAwwmbkHzmtgCspqXIg.JPEG.mrnobody0987/%EA%BF%88%EC%9D%98%EC%A0%9C%EC%9D%B8.jpg?type=w800" alt="">
+        </div>
+        <div class="swiper-slide">
+            <img src="https://mblogthumb-phinf.pstatic.net/MjAxODAxMThfMTQw/MDAxNTE2MjUyMDg5NTI1.xGTDqQNfQwgAt5o5M-O0spgGV3tjcDHzHGj_2zh958gg.cYTh1RdfQCU5vBk8EqjcvJumMTghUBEU_B-F5M_REQkg.JPEG.mrnobody0987/%EB%82%B4%EC%82%AC%EB%9E%91.jpg?type=w800" alt="">
+        </div>
+      </div>
+      <div class="swiper-button-prev"></div>
+      <div class="swiper-button-next"></div>
+      <div class="swiper-pagination"></div>
+    </div>
+  </div>
+
+  <div class="tip">휴대폰을 좌/우로 기울여 보세요</div>
+
+  <script src="https://unpkg.com/swiper@11/swiper-bundle.min.js"></script>
+  <script>
+    // --- Swiper 설정 ---
+    const swiper = new Swiper('.mySwiper', {
+      loop: true,
+      speed: 500,
+      resistanceRatio: 0,
+      pagination: { el: '.swiper-pagination', clickable: true },
+      navigation: { nextEl: '.swiper-button-next', prevEl: '.swiper-button-prev' },
+    });
+
+    // --- 기울이면 "한 장씩" 넘기기 ---
+    const THRESHOLD = 18;     // 몇 도 이상 기울이면 동작할지
+    const COOLDOWN_MS = 900;  // 한 번 넘긴 뒤 대기 시간
+    const RELEASE_TO_ZERO = 10; // 히스테리시스(수평 근처로 돌아와야 재무장)
+    const MAX_RATE = 30;      // 초당 처리 최대 횟수(성능/노이즈 제한)
+
+    let lastActionAt = 0;
+    let lastHandled = 0;
+    let armedLeft = true;
+    let armedRight = true;
+
+    function resetArms() {
+      armedLeft = true;
+      armedRight = true;
+    }
+
+    function handleOrientation(e) {
+      const now = performance.now();
+      if (now - lastHandled < (1000 / MAX_RATE)) return; // 이벤트 폭주 제한
+      lastHandled = now;
+
+      const gamma = e.gamma; // -90(왼쪽) ~ +90(오른쪽)
+      if (gamma == null) return;
+
+      // 쿨다운 중이면 무시
+      if (now - lastActionAt < COOLDOWN_MS) return;
+
+      // 오른쪽으로 충분히 기울이면 → 다음 슬라이드
+      if (gamma > THRESHOLD && armedRight) {
+        swiper.slideNext();
+        lastActionAt = now;
+        armedRight = false;
+        armedLeft = true;
+        // navigator.vibrate?.(30); // (옵션) 안드로이드 진동 피드백
+        return;
+      }
+
+      // 왼쪽으로 충분히 기울이면 → 이전 슬라이드
+      if (gamma < -THRESHOLD && armedLeft) {
+        swiper.slidePrev();
+        lastActionAt = now;
+        armedLeft = false;
+        armedRight = true;
+        // navigator.vibrate?.(30);
+        return;
+      }
+
+      // 히스테리시스: 거의 수평으로 돌아오면 재무장
+      if (Math.abs(gamma) < RELEASE_TO_ZERO) {
+        resetArms();
+      }
+    }
+
+    // --- iOS 권한 처리 + 리스너 등록 ---
+    const permBtn = document.getElementById('permBtn');
+    function startSensor() {
+      if (typeof DeviceOrientationEvent !== 'undefined' &&
+          typeof DeviceOrientationEvent.requestPermission === 'function') {
+        DeviceOrientationEvent.requestPermission()
+          .then(state => {
+            if (state === 'granted') {
+              window.addEventListener('deviceorientation', handleOrientation, { passive: true });
+              permBtn.style.display = 'none';
+            } else {
+              alert('센서 권한을 허용해야 기울기 제스처가 동작합니다.');
+            }
+          })
+          .catch(console.error);
+      } else {
+        // 안드로이드/일반 브라우저
+        window.addEventListener('deviceorientation', handleOrientation, { passive: true });
+        permBtn.style.display = 'none';
+      }
+    }
+    permBtn.addEventListener('click', startSensor, { once: true });
+
+    // 화면 회전 시(가로/세로 전환) 무장 상태 초기화
+    window.addEventListener('orientationchange', resetArms);
+  </script>
+</body>
+</html>
