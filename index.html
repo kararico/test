@@ -143,9 +143,10 @@
     
     // 페이지 로드 시 자동으로 센서 시작 시도
     function tryAutoStart() {
-      // iOS가 아닌 경우 바로 시작
+      // iOS가 아닌 경우 바로 시작하고 버튼 숨김
       if (typeof DeviceOrientationEvent === 'undefined' || 
           typeof DeviceOrientationEvent.requestPermission !== 'function') {
+        permBtn.style.display = 'none'; // 안드로이드에서는 버튼 숨김
         startSensor();
       }
     }
